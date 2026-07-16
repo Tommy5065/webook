@@ -1,0 +1,21 @@
+version: "3.8"
+services:
+  mysql:
+    image: mysql:8.0
+    ports:
+      - 6543:3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=mysql
+      - MYSQL_DATABASE=webook
+      - MYSQL_USER=webook
+      - MYSQL_PASSWORD=app123
+    container_name: webook_MySQL
+
+  redisWebook:
+    image: redis:8.8.0-alpine
+    ports:
+      - 5678:6379
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+
+    container_name: webook_redis

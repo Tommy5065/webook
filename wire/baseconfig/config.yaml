@@ -1,0 +1,95 @@
+app:
+  name: "web_app"
+  version: "v0.0.1"
+  model: "dev"
+  host: "127.0.0.1"
+  port: 8090
+  signatureKey: "lKE3bay1Mos62c5JdfRkKzq7dv89Pfuf"
+  encryptKey: "aa3c8cdb6751e251ce0f78dd374dd764"
+  time: "2026-05-30 UTC"
+
+log:
+  filename: "./internal/middelware/logger/webook.log"
+  level: "debug"
+  max_size: 1
+  max_backups: 2
+  max_age: 2
+
+mysql:
+  host: "127.0.0.1"
+  port: 6543
+  user: "root"
+  password: "mysql"
+  dbName: "webook"
+  maxOpenConns: 10
+  maxIdleConns: 5
+
+redis:
+  host: "127.0.0.1"
+  port: 5678
+  db: 0
+  poolSize: 20
+  maxIdleConns: 10
+  minIdleConns: 5
+  maxActiveConns: 0
+
+
+alibabaCloud:
+  AccessKeyID: "yourKeyID"
+  AccessKeySecret: "yourKey"
+  AccessType: "access_key"
+  sigName: "云渚科技验证平台"
+  templateID: "100001"
+
+minio:
+  endpoint: "127.0.0.1:9001"
+  accessKeyID: "minioadmin"
+  secretAccessKey: "minioadmin"
+  useSSL: false
+
+jwt:
+  bits: 1024                      # 签名位数
+
+rateLimit:
+  ip:
+    interval: 30m                 # 全局限流窗口
+    rate: 1000
+  sms:                           # 调用SDK限流窗口
+    interval: 1m
+    rate: 200
+
+snowflake:
+  machineID: 1
+
+session:
+  maxAge: 604800                  # 7天（秒）
+
+
+
+mq:
+  like:
+    streamName: "likeStream"
+    groupName: "likeGroup"
+    department: "article"
+    retryTime: 3
+    retryTimer: 1m
+    idle: 1m
+  follow:
+    streamName: "followStream" 
+    groupName: "followGroup"
+    department: "follow"
+    retryTime: 3
+    retryTimer: 1m
+    idle: 1m
+  smsSync:    # SMS是使用MySQL做消息队列，未超过的验证码直接入库 
+    windowSize: 4                  # 异步短信子任务数量
+    threshold: 2                    # 阈值
+    interval: 1m                # 子任务间隔
+  common:
+    buffSize: 50
+    block: 5s
+    timer: 5m
+    maxLen: 1000
+    approx: true
+    limit: 100
+    count: 100 # 一次读取多少条消息
