@@ -128,7 +128,6 @@ func NewSessionJwt(v *viper.Viper) (*authentication.SessionJwt, error) {
 		IgnoreAuthPath("/users/login/SMS").
 		IgnoreAuthPath("/users/refresh").
 		IgnoreAuthPath("/users/logout").
-		IgnoreAuthPath("/users/profile").
 		IgnoreAuthPath("/feed/list/likes")
 	return sjwt, nil
 }

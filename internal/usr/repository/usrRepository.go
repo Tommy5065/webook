@@ -30,6 +30,7 @@ var (
 	ErrUserInvalidEmailOrPassword = dao.ErrUserInvalidEmailOrPassword
 	ErrRedisNotFind               = cache.ErrNotFind
 	ErrUserPhoneInvalid           = dao.ErrUserInvalidPhone
+	ErrUserNotFound               = dao.ErrUserNotFound
 )
 
 func (rt *UserRepository) Create(ctx context.Context, u domain.User) error {

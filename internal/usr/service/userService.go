@@ -34,6 +34,7 @@ var (
 	ErrUserInvalidEmailOrPassword = repository.ErrUserInvalidEmailOrPassword
 	ErrRedisNotFind               = repository.ErrRedisNotFind
 	ErrUserPhoneInvalid           = repository.ErrUserPhoneInvalid
+	ErrUserNotFound               = repository.ErrUserNotFound
 )
 
 const biz string = "login"
@@ -96,29 +97,27 @@ func (srv *UserService) Profile(ctx context.Context, id int32) (user domain.Prof
 	user, err = srv.repo.RedisFindByID(ctx, id)
 
 	// 如果是缓存本身有问题,是否应该让大量请求打入Mysql，兜底方案
-	if err != nil {
-		if err == ErrRedisNotFind {
-			user, err = srv.repo.FindByID(ctx, id)
-			if err != nil {
-				switch err {
-				case ErrUserTimeOut:
-					return user, ErrUserTimeOut
-				default:
-					return user, err
-				}
-			}
+	switch err {
+	case nil:
+		return user, err
+	default:
+	}
 
-			//更新Redis
-			err := srv.repo.RedisSet(ctx, user, id)
-			if err != nil {
+	if err == ErrRedisNotFind {
+		user, errMysql := srv.repo.FindByID(ctx, id)
+		switch errMysql {
+		case ErrUserTimeOut:
+			return user, ErrUserTimeOut
+		case ErrUserNotFound:
+			return user, ErrUserNotFound
+		case nil:
+			updateErr := srv.repo.RedisSet(ctx, user, id)
+			if updateErr != nil {
 				zap.L().Error("redis set info err:", zap.Error(err))
 			}
-
 			return user, nil
-
-		} else { // 此处选择不打到数据库
-			zap.L().Error("redis unexpected err:", zap.Error(err))
-			return user, err
+		default:
+			return user, errMysql
 		}
 	}
 	return user, err

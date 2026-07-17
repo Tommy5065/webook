@@ -227,9 +227,10 @@ func (c *UserHandler) Login(ctx *gin.Context) {
 		})
 		return
 	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"context": "welcome",
+	ctx.JSON(http.StatusOK, RespModel.Respond[string]{
+		Code: 2,
+		Msg:  "登录成功",
+		Data: "WelCome",
 	})
 }
 
@@ -295,9 +296,11 @@ func (c *UserHandler) Edit(ctx *gin.Context) {
 }
 
 // Profile 查询不敏感信息
+// 路径参数为空，则查自己JWT
+// 不为空路径参数的用户ID为资源标识符
 func (c *UserHandler) Profile(ctx *gin.Context) {
 	type getProfileID struct {
-		UsrId int32 `form:"user_id" binding:"required"`
+		UsrId int32 `form:"user_id"`
 	}
 
 	var profileRequset getProfileID
@@ -310,35 +313,64 @@ func (c *UserHandler) Profile(ctx *gin.Context) {
 		})
 	}
 
+	if profileRequset.UsrId == 0 {
+		auth_, exists := ctx.Get("accessToken")
+		if !exists {
+			ctx.JSON(http.StatusUnauthorized, RespModel.Respond[int64]{
+				Code: 4,
+				Msg:  "令牌不存在",
+			})
+			return
+		}
+		author, ok := auth_.(*authentication.UserClaim)
+		if !ok {
+			ctx.JSON(http.StatusUnauthorized, RespModel.Respond[int64]{
+				Code: http.StatusUnauthorized,
+				Msg:  "令牌无效",
+			})
+			return
+		}
+		profileRequset.UsrId = author.UserId
+	}
+
 	// 数据库操作
 	userProfile, err := c.service.Profile(ctx, profileRequset.UsrId)
-	if err != nil {
-		if err == service.ErrUserTimeOut {
-			ctx.AbortWithStatusJSON(http.StatusRequestTimeout, RespModel.Respond[domain.ProfileResponde]{
-				Code: 2,
-				Msg:  "超时请重试",
-				Data: userProfile,
-			})
-		}
+	switch err {
+	case service.ErrUserTimeOut:
+		ctx.AbortWithStatusJSON(http.StatusRequestTimeout, RespModel.Respond[domain.ProfileResponde]{
+			Code: 2,
+			Msg:  "超时请重试",
+			Data: userProfile,
+		})
+		return
+	case service.ErrUserNotFound:
+		ctx.AbortWithStatusJSON(http.StatusOK, RespModel.Respond[domain.ProfileResponde]{
+			Code: 2,
+			Msg:  "用户不存在",
+			Data: userProfile,
+		})
+		return
+	case nil:
+		ctx.JSON(http.StatusOK, RespModel.Respond[domain.ProfileResponde]{
+			Code: 2,
+			Msg:  "查询成功",
+			Data: userProfile,
+		})
+		return
+	default:
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, RespModel.Respond[domain.ProfileResponde]{
 			Code: 5,
 			Msg:  "系统错误",
 			Data: userProfile,
 		})
-		return
 	}
-	ctx.JSON(http.StatusOK, RespModel.Respond[domain.ProfileResponde]{
-		Code: 2,
-		Msg:  "查询成功",
-		Data: userProfile,
-	})
 }
 
 // SendLoginSMS 发送短信验证码
 func (c *UserHandler) SendLoginSMS(ctx *gin.Context) {
 	// 校验手机号
 	type sendLoginSMSReq struct {
-		Phone_number string `json:"phone_number" binding:"required"`
+		Phone_number string `form:"phone_number" binding:"required"`
 	}
 
 	var req sendLoginSMSReq
@@ -494,9 +526,9 @@ func (c *UserHandler) getAccessToken(ctx *gin.Context) {
 	validToken, claims, err := c.service.VerifyJWT(refresh)
 	if err != nil || !validToken.Valid {
 		zap.L().Sugar().Error("refreshToken illegal:", zap.Error(err))
-		ctx.AbortWithStatusJSON(http.StatusOK, gin.H{
-			"code": 3,
-			"msg":  "请登录",
+		ctx.AbortWithStatusJSON(http.StatusOK, RespModel.Respond[string]{
+			Code: 2,
+			Msg:  "重新登录",
 		})
 		return
 	}
@@ -522,10 +554,6 @@ func (c *UserHandler) getAccessToken(ctx *gin.Context) {
 		})
 		return
 	}
-	ctx.JSON(http.StatusOK, RespModel.Respond[string]{
-		Code: 2,
-		Msg:  "刷新access_token成功",
-	})
 }
 
 // logOut 退出登录

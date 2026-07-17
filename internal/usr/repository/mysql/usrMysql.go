@@ -42,6 +42,7 @@ var (
 	ErrUserTimeOut                = errors.New("Time Out!")
 	ErrUserInvalidEmailOrPassword = errors.New("email/password wrong.")
 	ErrUserInvalidPhone           = errors.New("phoneNumber wrong.")
+	ErrUserNotFound               = sql.ErrNoRows
 )
 
 func NewUserDao(db *sql.DB) *UserDao {
@@ -135,7 +136,7 @@ func (ud *UserDao) Profile(ctx context.Context, id int32) (domain.ProfileRespond
 	retError := ud.MysqlDB.QueryRowContext(ctx, statement1, id).Scan(&profile.Nickname, &profile.Birthday, &profile.Aboutme, &profile.Follower, &profile.Followee)
 	switch retError {
 	case sql.ErrNoRows:
-		return profile, sql.ErrNoRows
+		return profile, ErrUserNotFound
 	case ErrUserTimeOut:
 		return profile, ErrUserTimeOut
 	case nil:

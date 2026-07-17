@@ -25,8 +25,8 @@ type AuthJWTer interface {
 
 type AuthJWT struct {
 	path        []string `wire:"-"`
-	privateFile os.File
-	publicFile  os.File
+	privateFile []byte
+	publicFile  []byte
 }
 
 // 自定义Claim接口
@@ -39,49 +39,20 @@ type UserClaim struct {
 
 func NewAuthJWT(bits int) (*AuthJWT, error) {
 	//Generates private key.
-	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
-	if err != nil {
-		return nil, err
-	}
-
-	// 封装私钥
-	x509Private := x509.MarshalPKCS1PrivateKey(privateKey)
-	block := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509Private,
-	}
-	privateFile, err := os.Create("privateKey.pem")
-	if err != nil {
-		return nil, err
-	}
-	defer privateFile.Close()
-	err = pem.Encode(privateFile, block)
+	privateFile, err := os.ReadFile("privateKey.pem")
 	if err != nil {
 		return nil, err
 	}
 
 	// Generate public key
-	x509Public, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	publicFile, err := os.ReadFile("publicKey.pem")
 	if err != nil {
 		return nil, err
-	}
-	block = &pem.Block{
-		Type:  "RSA PUBLIC KEY",
-		Bytes: x509Public,
 	}
 
-	publicFile, err := os.Create("publicKey.pem")
-	if err != nil {
-		return nil, err
-	}
-	defer publicFile.Close()
-	err = pem.Encode(publicFile, block)
-	if err != nil {
-		return nil, err
-	}
 	return &AuthJWT{
-		publicFile:  *publicFile,
-		privateFile: *privateFile,
+		publicFile:  publicFile,
+		privateFile: privateFile,
 	}, nil
 
 }
@@ -141,15 +112,8 @@ func (JWT *AuthJWT) GenerateJwt(claim jwt.Claims) (string, error) {
 	// 注意这里传入值，不是指针，使用值副本生成对应的token而不是修改结构体
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claim)
 
-	// 解析私钥文件获取私钥
-	private, err := os.ReadFile(JWT.privateFile.Name())
-	if err != nil {
-		zap.L().Fatal("open private file:", zap.Error(err))
-		return "", err
-	}
-
 	// 使用对应私钥加密
-	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(private)
+	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(JWT.privateFile)
 	if err != nil {
 		zap.L().Fatal("get private key:", zap.Error(err))
 		return "", err
@@ -167,15 +131,9 @@ func (JWT *AuthJWT) Verify(tokenstr string) (*jwt.Token, *UserClaim, error) {
 	// 注意这里使用指针ParseWithClaims把解析到的数据通过反射写入结构体,写入应该传入指针
 	claims := &UserClaim{}
 
-	// 获取公钥解密
-	public, err := os.ReadFile(JWT.publicFile.Name())
-	if err != nil {
-		return nil, claims, err
-	}
-
 	// 回调函数动态获取正确密钥,确保密钥符合head指定算法
 	token, err := jwt.ParseWithClaims(tokenstr, claims, func(t *jwt.Token) (interface{}, error) {
-		return jwt.ParseRSAPublicKeyFromPEM(public)
+		return jwt.ParseRSAPublicKeyFromPEM(JWT.publicFile)
 	})
 	if err != nil {
 		return nil, claims, err
@@ -184,11 +142,11 @@ func (JWT *AuthJWT) Verify(tokenstr string) (*jwt.Token, *UserClaim, error) {
 	return token, claims, nil
 }
 
-func (JWT *AuthJWT) GenRsaKey(bits int) (*AuthJWT, error) {
+func (JWT *AuthJWT) GenRsaKey(bits int) error {
 	//Generates private key.
 	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// 封装私钥
@@ -199,18 +157,18 @@ func (JWT *AuthJWT) GenRsaKey(bits int) (*AuthJWT, error) {
 	}
 	privateFile, err := os.Create("privateKey.pem")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer privateFile.Close()
 	err = pem.Encode(privateFile, block)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Generate public key
 	x509Public, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	block = &pem.Block{
 		Type:  "RSA PUBLIC KEY",
@@ -219,16 +177,14 @@ func (JWT *AuthJWT) GenRsaKey(bits int) (*AuthJWT, error) {
 
 	publicFile, err := os.Create("publicKey.pem")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer publicFile.Close()
 	err = pem.Encode(publicFile, block)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	JWT.publicFile = *publicFile
-	JWT.privateFile = *privateFile
-	return JWT, nil
+	return nil
 
 }
